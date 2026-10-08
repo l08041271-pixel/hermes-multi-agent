@@ -29,9 +29,9 @@ MCP_DIR = CEO_DIR / "memos-hub-mcp"
 
 try:
     from mcp.server.fastmcp import FastMCP  # noqa: F401
+    MCP_AVAILABLE = True
 except ImportError:
-    print("SKIP  mcp package not installed; install scripts/ceo/memos-hub-mcp deps to run")
-    sys.exit(0)
+    MCP_AVAILABLE = False
 
 
 def _wait_for_port(port_file: Path, deadline: float) -> int:
@@ -52,6 +52,10 @@ def _wait_for_http(port: int, deadline: float) -> None:
     raise RuntimeError(f"fake server port {port} not accepting connections")
 
 
+@unittest.skipUnless(
+    MCP_AVAILABLE,
+    "mcp package not installed; install scripts/ceo/memos-hub-mcp deps to run",
+)
 class MCPServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

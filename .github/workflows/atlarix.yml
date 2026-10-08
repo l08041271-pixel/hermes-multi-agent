@@ -1,0 +1,33 @@
+# Atlarix cloud agent — runs only when you ask Atlarix for work
+# (from Slack or atlarix.dev). Every change comes back as a pull request.
+# Docs: https://atlarix.dev/docs/guides/cloud-agent
+name: Atlarix
+
+on:
+  repository_dispatch:
+    types: [atlarix-task]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: atlarix-${{ github.event.client_payload.job_id }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: AmariahAK/atlarix-agent-action@v1
+        with:
+          job-id: ${{ github.event.client_payload.job_id }}
+          # Only for runs on your own key ("My own API key" on atlarix.dev).
+          # Unused for runs on Atlarix models, which bill your balance.
+          provider-key: ${{ secrets.ATLARIX_PROVIDER_KEY }}
+          provider: ${{ vars.ATLARIX_PROVIDER }}
+          model: ${{ vars.ATLARIX_MODEL }}

@@ -132,9 +132,18 @@ python -m pytest -q
 The suite is fully offline (a fake client stands in for the SDK); a live
 end-to-end test auto-skips unless `LLAMA_CLOUD_API_KEY` is set.
 
-CI (`.github/workflows/llamaparse-batches-smoke.yml`) runs the Python suite on
-3.11/3.12 and the TypeScript typecheck + dry run, and executes a live batch only
-when the `LLAMA_CLOUD_API_KEY` repository secret is configured.
+A ready-to-use GitHub Actions workflow is provided at
+`ci/llamaparse-batches-smoke.yml`. It runs the Python suite on 3.11/3.12 and
+the TypeScript typecheck + dry run, and executes a live batch only when the
+`LLAMA_CLOUD_API_KEY` repository secret is configured.
+
+To enable it, copy the file into place (this requires a token/app with
+`workflows` permission):
+
+```bash
+mkdir -p .github/workflows
+cp llamaparse-batches/ci/llamaparse-batches-smoke.yml .github/workflows/
+```
 
 ## REST equivalents
 

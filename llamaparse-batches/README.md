@@ -1,6 +1,6 @@
 # LlamaParse Batches — runnable starter
 
-A small, dependency-light project that implements the
+Three equivalent ways to run the
 [Getting Started with Batches](https://developers.llamaindex.ai/llamaparse/batches/getting_started/)
 flow against the LlamaCloud API:
 
@@ -10,35 +10,38 @@ create ephemeral directory → upload files → create batch
     → fetch underlying Parse/Extract job statuses
 ```
 
-It uses the official [`llama-cloud`](https://pypi.org/project/llama-cloud/) Python
-SDK (`AsyncLlamaCloud`).
+| Interface | Entry point | Notes |
+| --- | --- | --- |
+| Python SDK | `run_batch.py` | Official `llama-cloud` SDK (`AsyncLlamaCloud`). |
+| TypeScript SDK | `typescript/run-batch.ts` | Official `@llamaindex/llama-cloud` SDK. |
+| CLI (`llp`) | `run_batch.sh` | Wraps the `llp` CLI + `jq`. |
 
 ## What's here
 
 | File | Purpose |
 | --- | --- |
-| `run_batch.py` | End-to-end driver (create → upload → batch → poll → report). |
+| `run_batch.py` | Python driver (create → upload → batch → poll → report). |
+| `typescript/run-batch.ts` | TypeScript port of the same flow. |
+| `run_batch.sh` | `llp` CLI + `jq` equivalent. |
 | `make_sample_pdfs.py` | Generates tiny valid PDFs so you can test without real data. |
-| `requirements.txt` | Python dependency (`llama-cloud`). |
+| `tests/test_run_batch.py` | Offline smoke tests (no network / no key). |
+| `requirements.txt`, `requirements-dev.txt` | Python deps (`llama-cloud`, `pytest`). |
 | `.env.example` | Template for your API key. |
 
-## Setup
+## Setup (Python)
 
 ```bash
 cd llamaparse-batches
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt        # add -r requirements-dev.txt for tests
 
-# Provide your API key (Pro/Enterprise plan required)
-cp .env.example .env
-#   then edit .env and set LLAMA_CLOUD_API_KEY=...
+cp .env.example .env                   # then set LLAMA_CLOUD_API_KEY=llx-...
 ```
 
 ## Quickstart
 
 ```bash
-# 1. Create some throwaway PDFs in ./invoices
+# 1. Create throwaway PDFs in ./invoices
 python make_sample_pdfs.py --count 3
 
 # 2. Validate inputs without hitting the API
@@ -49,6 +52,27 @@ python run_batch.py --source-dir ./invoices --config-id cfg-PARSE_AGENTIC
 ```
 
 Exit codes: `0` success, `1` one or more files failed, `130` interrupted.
+
+## TypeScript
+
+```bash
+cd llamaparse-batches/typescript
+npm install
+npm run typecheck
+npm start -- --source-dir ../invoices --config-id cfg-PARSE_AGENTIC
+```
+
+Reads `LLAMA_CLOUD_API_KEY` from the environment or a `.env` file.
+
+## CLI (`llp`)
+
+Requires `llp` and `jq` on `PATH`.
+
+```bash
+export LLAMA_CLOUD_API_KEY="llx-..."
+./run_batch.sh --source-dir ./invoices --config-id cfg-PARSE_AGENTIC
+./run_batch.sh --source-dir ./invoices --dry-run   # print the llp commands only
+```
 
 ## Configuration IDs
 
@@ -63,7 +87,7 @@ python run_batch.py --source-dir ./invoices \
   --job-type extract_v2 --config-id cfg-YOUR-EXTRACT-CONFIG
 ```
 
-## Common options
+## Common options (all three interfaces)
 
 | Flag | Default | Notes |
 | --- | --- | --- |
@@ -86,15 +110,31 @@ python run_batch.py --source-dir ./invoices \
 - **Batch-level `FAILED`** means orchestration failed and no reliable per-file
   result set is available.
 - **Per-file failures** appear in `results[*].error_message`. Successful files
-  carry a `job_reference`; the script then queries the referenced Parse/Extract
-  job endpoint for the underlying status.
+  carry a `job_reference`; each interface then queries the referenced
+  Parse/Extract job endpoint for the underlying status.
 - Batch creation is capped at **10,000 source files** (enforced client-side).
 
 ## Inspecting an existing batch
 
 ```bash
 python run_batch.py --inspect bat-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+./run_batch.sh   --inspect bat-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 ```
+
+## Tests & CI
+
+```bash
+cd llamaparse-batches
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+The suite is fully offline (a fake client stands in for the SDK); a live
+end-to-end test auto-skips unless `LLAMA_CLOUD_API_KEY` is set.
+
+CI (`.github/workflows/llamaparse-batches-smoke.yml`) runs the Python suite on
+3.11/3.12 and the TypeScript typecheck + dry run, and executes a live batch only
+when the `LLAMA_CLOUD_API_KEY` repository secret is configured.
 
 ## REST equivalents
 
@@ -106,10 +146,12 @@ python run_batch.py --inspect bat-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 
 ## Troubleshooting
 
-- **`SSL: CERTIFICATE_VERIFY_FAILED` on `pip install`** — this happens behind a
+- **`SSL: CERTIFICATE_VERIFY_FAILED` on `pip install`** — happens behind a
   TLS-inspecting proxy. Point pip at the proxy CA, e.g.
-  `pip install --cert /etc/mitm/ca.crt -r requirements.txt`, or add the CA via
+  `pip install --cert /etc/mitm/ca.crt -r requirements.txt`, or set
   `PIP_CERT=/path/to/ca.crt`.
 - **`LLAMA_CLOUD_API_KEY is not set`** — export it or put it in `.env`.
 - **`extract_v2 requires a saved Extract configuration ID`** — you passed a
   Parse preset to an extraction job; supply a saved `extract_v2` config ID.
+- **`required tool not found on PATH: llp`** — install the LlamaCloud CLI, or
+  use the Python/TypeScript drivers instead.

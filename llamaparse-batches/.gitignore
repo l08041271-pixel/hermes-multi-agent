@@ -10,5 +10,6 @@ __pycache__/
 .venv/
 venv/
 
-# The repo root ignores *.txt; keep our requirements file tracked.
+# The repo root ignores *.txt; keep our requirements files tracked.
 !requirements.txt
+!requirements-dev.txt

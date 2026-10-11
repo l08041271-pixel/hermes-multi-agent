@@ -1,0 +1,67 @@
+name: llamaparse-batches smoke
+
+on:
+  push:
+    paths:
+      - "llamaparse-batches/**"
+      - ".github/workflows/llamaparse-batches-smoke.yml"
+  pull_request:
+    paths:
+      - "llamaparse-batches/**"
+      - ".github/workflows/llamaparse-batches-smoke.yml"
+  workflow_dispatch:
+
+jobs:
+  python:
+    name: python (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: llamaparse-batches
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    # Exposed so the live step can be skipped when the secret is absent.
+    env:
+      LLAMA_CLOUD_API_KEY: ${{ secrets.LLAMA_CLOUD_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: llamaparse-batches/requirements*.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Unit tests (offline, no key needed)
+        run: python -m pytest -q
+      - name: Generate sample PDFs
+        run: python make_sample_pdfs.py --count 3
+      - name: CLI dry run
+        run: python run_batch.py --source-dir ./invoices --dry-run
+      - name: Live batch smoke (only when secret is configured)
+        if: ${{ env.LLAMA_CLOUD_API_KEY != '' }}
+        run: python run_batch.py --source-dir ./invoices --config-id cfg-PARSE_AGENTIC --poll-interval 5 --timeout 900
+
+  typescript:
+    name: typescript
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: llamaparse-batches/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: llamaparse-batches/typescript/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Generate sample PDFs
+        run: python3 ../make_sample_pdfs.py --out ../invoices --count 3
+      - name: CLI dry run
+        run: npx tsx run-batch.ts --dry-run --source-dir ../invoices

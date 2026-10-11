@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Generated sample inputs / outputs
+invoices/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# The repo root ignores *.txt; keep our requirements file tracked.
+!requirements.txt
